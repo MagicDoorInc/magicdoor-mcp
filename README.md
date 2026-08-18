@@ -112,9 +112,15 @@ Two things follow, and both are deliberate:
 ## Releasing
 
 ```bash
-npm version patch      # or minor, or major
-./publish.sh 123456    # the code from your authenticator
+npm version patch                  # or minor, or major
+NPM_TOKEN=npm_xxx ./publish.sh
 ```
+
+npm will not publish without a second factor. Create a granular access token at
+npmjs.com → Access Tokens → Generate New Token → Granular Access Token, with **Bypass 2FA**
+ticked and read/write limited to the `@magicdoor` scope, and pass it as `NPM_TOKEN`. It cannot
+touch anything outside that scope even if it leaks. If you have 2FA set up instead, pass the
+code: `./publish.sh 123456`.
 
 `publish.sh` refuses to run on a dirty tree or a version that is already on npm, checks types,
 runs the tests, then publishes.
