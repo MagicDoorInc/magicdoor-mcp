@@ -20,7 +20,7 @@ assistant should have — `properties:read`, `units:read`, `leases:read`, `tenan
     "magicdoor": {
       "command": "npx",
       "args": ["-y", "@magicdoor/mcp"],
-      "env": { "MAGICDOOR_API_KEY": "magic_7412996891234_Xk3nQv…" }
+      "env": { "MAGICDOOR_API_KEY": "magic_0_EXAMPLE-NOT-A-REAL-KEY" }
     }
   }
 }

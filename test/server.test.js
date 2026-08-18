@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { startStub } from "./stub.js";
 import { startServer } from "./client.js";
 
-const API_KEY = "magic_7412996891234_Xk3nQv8mWp2sT5yR9dL4bN6hJ1kF3gZ7xC0vQ8aE";
+const API_KEY = "magic_0_EXAMPLE-NOT-A-REAL-KEY";
 
 let stub;
 let accountingStub;
