@@ -109,6 +109,16 @@ Two things follow, and both are deliberate:
 - **Narrowing your own MagicDoor permissions narrows the key too.** Permissions are re-checked
   every time a token is issued, so a key can never do more than you can right now.
 
+## Releasing
+
+```bash
+npm version patch      # or minor, or major
+./publish.sh 123456    # the code from your authenticator
+```
+
+`publish.sh` refuses to run on a dirty tree or a version that is already on npm, checks types,
+runs the tests, then publishes.
+
 ## Development
 
 ```bash
