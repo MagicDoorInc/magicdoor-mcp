@@ -1,19 +1,9 @@
 /**
  * Maintenance: what tenants reported, what work is happening, who is doing it.
- * Served by the maintenance service.
  */
 import { z } from "zod";
 import type { ToolDefinition } from "../registry.js";
-
-const workOrderStatus = z
-  .array(z.enum(["Pending", "InProgress", "Completed", "Closed", "Cancelled"]))
-  .optional()
-  .describe("Only work orders in these states.");
-
-const requestStatus = z
-  .array(z.enum(["Pending", "InProgress", "AiProcessing", "WaitingForWorkOrder", "Closed"]))
-  .optional()
-  .describe("Only requests in these states.");
+import { oneOrMany, selectPath } from "./shared.js";
 
 const place = {
   propertyIds: z.array(z.string()).optional().describe("Only work at these properties."),
@@ -26,19 +16,27 @@ const window = {
   end: z.string().optional().describe("Only records up to this date, YYYY-MM-DD."),
 };
 
-export const maintenanceTools: ToolDefinition[] = [
-  // ---- What tenants reported ----------------------------------------------------------------
+const workOrderStatus = z
+  .array(z.enum(["Pending", "InProgress", "Completed", "Closed", "Cancelled"]))
+  .optional()
+  .describe("Only work orders in these states.");
 
+const HISTORY_PATHS = { request: "maintenance-requests", workOrder: "work-orders" } as const;
+const CATEGORY_PATHS = { request: "maintenance-requests/categories", vendor: "vendors/categories" } as const;
+const VENDOR_DETAIL_PATHS = { overview: "overview", customFields: "custom-fields" } as const;
+
+export const maintenanceTools: ToolDefinition[] = [
   {
-    name: "list_maintenance_requests",
-    title: "List maintenance requests",
+    name: "get_maintenance_requests",
+    title: "Maintenance requests",
     description:
-      "What tenants have reported as needing fixing, with urgency and status. Use for 'what is " +
-      "broken', 'what came in this week', and finding a request to look into.",
+      "What tenants have reported as needing fixing. Pass maintenanceRequestId for one request in " +
+      "full; omit it to list what matches the filters. Use for 'what is broken', 'what came in " +
+      "this week', and finding a request to look into.",
     service: "maintenance",
-    path: "maintenance-requests",
-    paginated: true,
+    ...oneOrMany("maintenanceRequestId", "maintenance-requests"),
     schema: {
+      maintenanceRequestId: z.string().optional().describe("Return just this request, in full."),
       ...window,
       propertyId: z.string().optional().describe("Only requests at this property."),
       unitId: z.string().optional().describe("Only requests at this unit."),
@@ -46,7 +44,10 @@ export const maintenanceTools: ToolDefinition[] = [
       leaseId: z.string().optional().describe("Only requests against this lease."),
       tenantId: z.string().optional().describe("Only requests raised by this tenant."),
       categoryId: z.string().optional().describe("Only requests in this category."),
-      status: requestStatus,
+      status: z
+        .array(z.enum(["Pending", "InProgress", "AiProcessing", "WaitingForWorkOrder", "Closed"]))
+        .optional()
+        .describe("Only requests in these states."),
       urgency: z
         .enum(["Urgent", "High", "Medium", "Low", "None"])
         .optional()
@@ -56,58 +57,25 @@ export const maintenanceTools: ToolDefinition[] = [
     },
   },
   {
-    name: "get_maintenance_request",
-    title: "Get a maintenance request",
-    description:
-      "One maintenance request in full — what was reported, by whom, its urgency, and the work " +
-      "raised from it.",
-    service: "maintenance",
-    path: "maintenance-requests/{maintenanceRequestId}",
-    schema: { maintenanceRequestId: z.string().describe("The request id, from list_maintenance_requests.") },
-  },
-  {
-    name: "get_maintenance_request_history",
-    title: "Get a request's history",
-    description:
-      "The timeline of one maintenance request — status changes and who made them. Use for " +
-      "'what happened with this' and 'how long did it sit' questions.",
-    service: "maintenance",
-    path: "maintenance-requests/{maintenanceRequestId}/history",
-    schema: { maintenanceRequestId: z.string().describe("The request id, from list_maintenance_requests.") },
-  },
-  {
     name: "get_maintenance_request_stats",
-    title: "Get maintenance request statistics",
+    title: "Maintenance request statistics",
     description:
-      "Counts of maintenance requests by state — the headline numbers, without listing them. Use " +
+      "Counts of maintenance requests by state — the headline numbers without listing them. Use " +
       "for 'how much is outstanding' questions.",
     service: "maintenance",
     path: "maintenance-requests/stats",
     schema: {},
   },
   {
-    name: "list_maintenance_request_categories",
-    title: "List maintenance categories",
+    name: "get_work_orders",
+    title: "Work orders",
     description:
-      "The categories requests are filed under, such as plumbing or electrical. Use to find a " +
-      "category id for filtering, or to explain how requests are classified.",
+      "The work raised to fix things. Pass workOrderId for one in full; omit it to list what " +
+      "matches the filters. Use for 'what work is open' and 'what is this vendor doing'.",
     service: "maintenance",
-    path: "maintenance-requests/categories",
-    schema: {},
-  },
-
-  // ---- The work itself ----------------------------------------------------------------------
-
-  {
-    name: "list_work_orders",
-    title: "List work orders",
-    description:
-      "The work raised to fix things, with its status, vendor and schedule. Use for 'what work is " +
-      "open', 'what is this vendor doing', and finding a work order to look into.",
-    service: "maintenance",
-    path: "work-orders",
-    paginated: true,
+    ...oneOrMany("workOrderId", "work-orders"),
     schema: {
+      workOrderId: z.string().optional().describe("Return just this work order, in full."),
       ...place,
       ...window,
       leaseIds: z.array(z.string()).optional().describe("Only work against these leases."),
@@ -120,28 +88,8 @@ export const maintenanceTools: ToolDefinition[] = [
     },
   },
   {
-    name: "get_work_order",
-    title: "Get a work order",
-    description:
-      "One work order in full — what is being done, by whom, when, at what cost, and where it has " +
-      "got to.",
-    service: "maintenance",
-    path: "work-orders/{workOrderId}",
-    schema: { workOrderId: z.string().describe("The work order id, from list_work_orders.") },
-  },
-  {
-    name: "get_work_order_history",
-    title: "Get a work order's history",
-    description:
-      "The timeline of one work order — status changes, assignment and scheduling, and who did " +
-      "each. Use for 'why is this taking so long' questions.",
-    service: "maintenance",
-    path: "work-orders/{workOrderId}/history",
-    schema: { workOrderId: z.string().describe("The work order id, from list_work_orders.") },
-  },
-  {
-    name: "list_work_order_schedule",
-    title: "List scheduled work",
+    name: "get_work_order_schedule",
+    title: "Scheduled work",
     description:
       "Work orders arranged by when they are booked in, the view used for planning a day or week. " +
       "Use for 'what is happening on Tuesday' questions.",
@@ -150,15 +98,31 @@ export const maintenanceTools: ToolDefinition[] = [
     schema: { ...place, ...window, status: workOrderStatus },
   },
   {
-    name: "list_recurring_work_orders",
-    title: "List recurring work orders",
+    name: "get_maintenance_history",
+    title: "History of a request or work order",
     description:
-      "Work that repeats on a schedule, such as quarterly servicing. Use to explain standing " +
-      "maintenance as opposed to one-off jobs.",
+      "The timeline of one maintenance request or work order — status changes, assignment and " +
+      "scheduling, and who did each. Use for 'what happened with this' and 'why is it taking so " +
+      "long' questions.",
     service: "maintenance",
-    path: "work-orders/recurring",
-    paginated: true,
+    path: (args) => selectPath(HISTORY_PATHS, args.type, (segment) => `${segment}/{id}/history`),
+    consumes: ["type"],
     schema: {
+      type: z.enum(["request", "workOrder"]).describe("Whether the id is a maintenance request or a work order."),
+      id: z.string().describe("The maintenance request or work order id."),
+    },
+  },
+  {
+    name: "get_recurring_work_orders",
+    title: "Recurring work orders",
+    description:
+      "Work that repeats on a schedule, such as quarterly servicing. Pass recurringWorkOrderId for " +
+      "one in full; omit it to list them. Use to explain standing maintenance as opposed to " +
+      "one-off jobs.",
+    service: "maintenance",
+    ...oneOrMany("recurringWorkOrderId", "work-orders/recurring"),
+    schema: {
+      recurringWorkOrderId: z.string().optional().describe("Return just this recurring work order."),
       ...place,
       vendorIds: z.array(z.string()).optional().describe("Only recurring work for these vendors."),
       active: z.boolean().optional().describe("Only schedules still running when true."),
@@ -166,34 +130,23 @@ export const maintenanceTools: ToolDefinition[] = [
     },
   },
   {
-    name: "get_recurring_work_order",
-    title: "Get a recurring work order",
-    description: "One recurring work order — what repeats, how often, and who does it.",
-    service: "maintenance",
-    path: "work-orders/recurring/{recurringWorkOrderId}",
-    schema: { recurringWorkOrderId: z.string().describe("The id, from list_recurring_work_orders.") },
-  },
-  {
     name: "get_recurring_work_order_stats",
-    title: "Get recurring work statistics",
-    description: "How a recurring work order has performed — how often it ran and what it cost.",
+    title: "Recurring work statistics",
+    description: "How a recurring work order has performed — how often it ran and what it has cost.",
     service: "maintenance",
     path: "work-orders/recurring/{recurringWorkOrderId}/stats",
-    schema: { recurringWorkOrderId: z.string().describe("The id, from list_recurring_work_orders.") },
+    schema: { recurringWorkOrderId: z.string().describe("The id, from get_recurring_work_orders.") },
   },
-
-  // ---- Who does the work --------------------------------------------------------------------
-
   {
-    name: "list_vendors",
-    title: "List vendors",
+    name: "get_vendors",
+    title: "Vendors",
     description:
-      "The contractors and suppliers who do the work, with their trade and contact details. Use " +
-      "to find a vendor id, or to answer 'who do we use for plumbing' questions.",
+      "The contractors and suppliers who do the work. Pass vendorId for one in full; omit it to " +
+      "list vendors matching the filters. Use for 'who do we use for plumbing' questions.",
     service: "maintenance",
-    path: "vendors",
-    paginated: true,
+    ...oneOrMany("vendorId", "vendors"),
     schema: {
+      vendorId: z.string().optional().describe("Return just this vendor, in full."),
       name: z.string().optional().describe("Match on vendor name."),
       categoryId: z.string().optional().describe("Only vendors in this trade category."),
       email: z.string().optional().describe("Match on email address."),
@@ -203,61 +156,45 @@ export const maintenanceTools: ToolDefinition[] = [
     },
   },
   {
-    name: "get_vendor",
-    title: "Get a vendor",
-    description: "One vendor in full — trade, contact details, insurance and how they are paid.",
-    service: "maintenance",
-    path: "vendors/{vendorId}",
-    schema: { vendorId: z.string().describe("The vendor id, from list_vendors.") },
-  },
-  {
-    name: "get_vendor_overview",
-    title: "Get a vendor's overview",
+    name: "get_vendor_detail",
+    title: "A vendor's overview or custom fields",
     description:
-      "A vendor's work at a glance — how much they have done and what it has cost. Use for " +
-      "'how much do we spend with them' questions.",
+      "Either a vendor's work at a glance — how much they have done and what it has cost, for " +
+      "'how much do we spend with them' questions — or the company-defined custom fields recorded " +
+      "against them.",
     service: "maintenance",
-    path: "vendors/{vendorId}/overview",
-    schema: { vendorId: z.string().describe("The vendor id, from list_vendors.") },
+    path: (args) => selectPath(VENDOR_DETAIL_PATHS, args.detail, (segment) => `vendors/{vendorId}/${segment}`),
+    consumes: ["detail"],
+    schema: {
+      vendorId: z.string().describe("The vendor id, from get_vendors."),
+      detail: z.enum(["overview", "customFields"]).describe("Which view of the vendor to fetch."),
+    },
   },
   {
-    name: "get_vendor_custom_fields",
-    title: "Get a vendor's custom fields",
-    description: "The company-defined custom fields recorded against a vendor, and their values.",
-    service: "maintenance",
-    path: "vendors/{vendorId}/custom-fields",
-    schema: { vendorId: z.string().describe("The vendor id, from list_vendors.") },
-  },
-  {
-    name: "list_vendor_categories",
-    title: "List vendor categories",
+    name: "list_maintenance_categories",
+    title: "Maintenance and vendor categories",
     description:
-      "The trade categories vendors are grouped into. Use to find a category id for filtering " +
-      "vendors or requests.",
+      "The categories requests are filed under, or the trade categories vendors are grouped into. " +
+      "Use to find a category id for filtering, or to explain how work is classified.",
     service: "maintenance",
-    path: "vendors/categories",
-    schema: {},
+    path: (args) => selectPath(CATEGORY_PATHS, args.type, (segment) => segment),
+    consumes: ["type"],
+    schema: {
+      type: z.enum(["request", "vendor"]).describe("Which set of categories to list."),
+    },
   },
-
-  // ---- How the work should be done ----------------------------------------------------------
-
   {
-    name: "list_run_books",
-    title: "List run books",
+    name: "get_run_books",
+    title: "Run books",
     description:
       "The standing instructions for handling particular kinds of maintenance — who to call and " +
-      "what to authorise. Use for 'what is our process for X' questions.",
+      "what to authorise. Pass runBookId for one in full; omit it to list them. Use for 'what is " +
+      "our process for X' questions.",
     service: "maintenance",
-    path: "run-books",
-    paginated: true,
-    schema: { title: z.string().optional().describe("Match on the run book's title.") },
-  },
-  {
-    name: "get_run_book",
-    title: "Get a run book",
-    description: "One run book in full — its conditions and the actions it prescribes.",
-    service: "maintenance",
-    path: "run-books/{runBookId}",
-    schema: { runBookId: z.string().describe("The run book id, from list_run_books.") },
+    ...oneOrMany("runBookId", "run-books"),
+    schema: {
+      runBookId: z.string().optional().describe("Return just this run book, in full."),
+      title: z.string().optional().describe("Match on the run book's title."),
+    },
   },
 ];

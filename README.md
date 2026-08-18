@@ -38,88 +38,50 @@ property?"*
 
 | Tool | Answers questions like |
 |---|---|
-| `list_properties` | What's in the portfolio? Which properties does this owner have? |
-| `list_units` | How many units does this property have? Which are active? |
-| `list_tenants` | Who lives where, and how do I reach them? |
-| `list_owners` | Who owns which properties? |
+| `list_properties` / `list_units` | What's in the portfolio? How many units does this property have? |
+| `list_tenants` / `list_owners` | Who lives where? Who owns what? How do I reach them? |
 
-**Leases**
+**Leases** — several tools take an id for one record, or filters for a list.
 
 | Tool | Answers questions like |
 |---|---|
-| `list_leases` | Who's renting what? Which leases carry a balance? |
-| `get_lease` | Everything about one lease. |
-| `list_expiring_leases` | What's ending soon? |
-| `list_move_outs` | Who's leaving, and when? |
-
-**Money on a lease**
-
-| Tool | Answers questions like |
-|---|---|
-| `get_lease_ledger` | What do they owe? What have they paid? |
-| `get_lease_deposit_ledger` | What deposit is held, and what's been released? |
-| `get_lease_transaction` | Drill into one ledger entry — charge, payment, credit, late fee, transfer or deposit. |
-| `list_lease_recurring_items` | What is billed or credited each period, as opposed to what has posted? |
-| `list_lease_auto_pays` | Is this tenant on autopay? |
-
-**Lifecycle and paperwork**
-
-| Tool | Answers questions like |
-|---|---|
-| `list_lease_renewals` | Which leases renewed, and how did rent move? |
-| `list_lease_renewal_offers` | What was offered on this lease? |
-| `list_lease_move_outs` | Where has this move-out got to? |
-| `list_lease_subsidies` | Who pays what share of the rent? |
+| `get_leases` | Who's renting what? Which leases carry a balance? One lease in full. |
+| `get_lease_ledger` | What do they owe, what have they paid — charges or deposits. |
+| `get_lease_transaction` | One ledger entry: charge, payment, credit, late fee, transfer or deposit. |
+| `list_lease_recurring_items` | What's billed or credited each period, rather than what has posted. |
+| `list_lease_related` | Autopay, renewal offers, move-outs, subsidies, files or custom fields for a lease. |
+| `list_expiring_leases` / `list_move_outs` / `list_lease_renewals` | What's ending, who's leaving, what renewed. |
 | `list_lease_documents` | Has the lease been signed? |
-| `list_lease_files` / `get_lease_custom_fields` | What else is recorded against this lease? |
-
-**Accounting** *(served by MagicDoor's accounting service)*
-
-| Tool | Answers questions like |
-|---|---|
-| `list_bank_accounts` / `get_bank_account` | What accounts do we hold, and what's in them? |
-| `list_chart_of_accounts` / `get_chart_of_account` | How are the books structured? |
-| `get_transaction` | What was this transaction? |
-| `list_bank_ledger_transfers` / `get_bank_ledger_transfer` | What moved between accounts? |
-| `list_manual_journal_entries` / `get_manual_journal_entry` | What adjustments were posted by hand? |
-| `list_deposit_slips` | Which payments were banked together? |
-
-**Financial reports**
-
-| Tool | Answers questions like |
-|---|---|
-| `get_balance_sheet` | What are we worth, as at a date? |
-| `get_income_statement` | How did we do over a period? |
-| `get_cash_flow_statement` | What moved in and out, by month or property? |
-| `get_general_ledger` | Every posting to an account — narrow it, it gets large. |
-| `get_rent_payments_report` | What rent came in, and how was it paid? |
-| `get_owner_statement` | What does this owner get? |
-| `get_accounting_summary` | Headline figures — on-time rent, online payments, daily money movement, returns and disputes. |
-
-**Maintenance** *(served by MagicDoor's maintenance service)*
-
-| Tool | Answers questions like |
-|---|---|
-| `list_maintenance_requests` / `get_maintenance_request` | What's broken? What came in this week? |
-| `get_maintenance_request_history` | What happened with this, and how long did it sit? |
-| `get_maintenance_request_stats` | How much is outstanding? |
-| `list_work_orders` / `get_work_order` | What work is open? What is this vendor doing? |
-| `get_work_order_history` | Why is this taking so long? |
-| `list_work_order_schedule` | What's happening on Tuesday? |
-| `list_recurring_work_orders` / `get_recurring_work_order` / `..._stats` | What repeats, how often, and what does it cost? |
-| `list_vendors` / `get_vendor` / `get_vendor_overview` | Who do we use for plumbing? How much do we spend with them? |
-| `list_vendor_categories` / `list_maintenance_request_categories` | How is work classified? |
-| `list_run_books` / `get_run_book` | What's our process for this kind of problem? |
 
 **Conversations**
 
 | Tool | Answers questions like |
 |---|---|
-| `list_chats` | What are people asking about? Which chats are still open? |
-| `get_chat` | Who's in this conversation, and what's it about? |
-| `get_chat_messages` | What was actually said? |
-| `list_unread_messages` | What needs a response? |
-| `search_chat_messages` | Did anyone mention the boiler? |
+| `list_chats` / `get_chat` / `get_chat_messages` | What are people asking about, and what was said? |
+| `list_unread_messages` / `search_chat_messages` | What needs a response? Did anyone mention the boiler? |
+
+**Accounting**
+
+| Tool | Answers questions like |
+|---|---|
+| `get_bank_accounts` / `get_chart_of_accounts` | What accounts do we hold? How are the books structured? |
+| `get_transaction` / `get_bank_ledger_transfers` / `get_manual_journal_entries` | What was this? What moved? What was adjusted by hand? |
+| `list_deposit_slips` | Which payments were banked together? |
+| `get_financial_report` | Balance sheet, income statement, cash flow or general ledger. |
+| `get_rent_payments_report` / `get_owner_statement` | What rent came in? What does this owner get? |
+| `get_accounting_summary` | On-time rent, online payments, daily money movement, returns and disputes. |
+
+**Maintenance**
+
+| Tool | Answers questions like |
+|---|---|
+| `get_maintenance_requests` | What's broken? What came in this week? One request in full. |
+| `get_work_orders` / `get_work_order_schedule` | What work is open? What's happening on Tuesday? |
+| `get_maintenance_history` | What happened with this, and why is it taking so long? |
+| `get_recurring_work_orders` / `get_recurring_work_order_stats` | What repeats, how often, at what cost? |
+| `get_vendors` / `get_vendor_detail` | Who do we use for plumbing? How much do we spend with them? |
+| `list_maintenance_categories` / `get_run_books` | How is work classified? What's our process? |
+| `get_maintenance_request_stats` | How much is outstanding? |
 
 **Every tool is read-only.** There is no way to create, change or delete anything in MagicDoor
 through this server, by design.

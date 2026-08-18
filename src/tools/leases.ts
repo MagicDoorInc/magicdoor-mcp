@@ -3,6 +3,7 @@
  */
 import { z } from "zod";
 import type { ToolDefinition } from "../registry.js";
+import { oneOrMany, selectPath } from "./shared.js";
 
 const leaseId = z.string().describe("The lease id, as returned by list_leases.");
 
@@ -26,16 +27,29 @@ const RECURRING_PATHS = {
 
 type RecurringType = keyof typeof RECURRING_PATHS;
 
+const LEDGER_PATHS = { charges: "charges", deposits: "deposits" } as const;
+
+/** Sub-resources of a lease that take nothing but the lease id. */
+const RELATED_PATHS = {
+  autoPays: "auto-pays",
+  renewalOffers: "renewals",
+  moveOuts: "move-outs",
+  subsidies: "subsidies",
+  files: "files",
+  customFields: "custom-fields",
+} as const;
+
 export const leaseTools: ToolDefinition[] = [
   {
-    name: "list_leases",
-    title: "List leases",
+    name: "get_leases",
+    title: "Leases",
     description:
-      "List leases with their term, rent and balance. Use for questions about who is renting what, " +
-      "which leases carry a balance, and when terms start or end.",
-    path: "leases",
-    paginated: true,
+      "Leases with their term, rent, tenants and balance. Pass leaseId for one in full; omit it to " +
+      "list what matches the filters. Use for 'who is renting what', 'which leases carry a " +
+      "balance', and finding a lease to look into.",
+    ...oneOrMany("leaseId", "leases"),
     schema: {
+      leaseId: z.string().optional().describe("Return just this lease, in full."),
       propertyId: z.string().optional().describe("Only leases on this property."),
       unitId: z.string().optional().describe("Only leases on this unit."),
       portfolioId: z.string().optional().describe("Only leases in this portfolio."),
@@ -46,13 +60,37 @@ export const leaseTools: ToolDefinition[] = [
     },
   },
   {
-    name: "get_lease",
-    title: "Get a lease",
+    name: "get_lease_ledger",
+    title: "A lease's ledger",
     description:
-      "The full record for one lease — term, rent, tenants, unit and balances. Use when a question " +
-      "is about a specific lease rather than finding one.",
-    path: "leases/{leaseId}",
-    schema: { leaseId },
+      "A lease's transaction ledger with a running balance. The charges ledger holds every charge, " +
+      "payment, credit, late fee and transfer; the deposits ledger holds security deposits held, " +
+      "released or applied. This is the tool for 'what do they owe' and 'what have they paid'.",
+    path: (args) => selectPath(LEDGER_PATHS, args.ledger, (segment) => `leases/{leaseId}/${segment}/ledger`),
+    consumes: ["ledger"],
+    schema: {
+      leaseId,
+      ledger: z.enum(["charges", "deposits"]).describe("Which ledger to read."),
+      limit: z.number().int().min(1).optional().describe("Most recent N entries. Omit for the full ledger."),
+      asOf: z.string().optional().describe("Balance as at this date, YYYY-MM-DD. Omit for today."),
+    },
+  },
+  {
+    name: "list_lease_related",
+    title: "Things attached to a lease",
+    description:
+      "Records hanging off one lease: autopay arrangements tenants have set up, renewal offers " +
+      "made, move-out records, housing subsidies paying part of the rent, attached files, or the " +
+      "company-defined custom fields. Pick which with the type argument.",
+    path: (args) => selectPath(RELATED_PATHS, args.type, (segment) => `leases/{leaseId}/${segment}`),
+    consumes: ["type"],
+    paginated: true,
+    schema: {
+      leaseId,
+      type: z
+        .enum(["autoPays", "renewalOffers", "moveOuts", "subsidies", "files", "customFields"])
+        .describe("Which records attached to the lease to return."),
+    },
   },
   {
     name: "list_expiring_leases",
@@ -78,33 +116,6 @@ export const leaseTools: ToolDefinition[] = [
     schema: {
       propertyId: z.string().optional().describe("Only move-outs on this property."),
       portfolioId: z.string().optional().describe("Only move-outs in this portfolio."),
-    },
-  },
-  {
-    name: "get_lease_ledger",
-    title: "Get the lease ledger",
-    description:
-      "The lease's transaction ledger: every charge, payment, credit, late fee and transfer with a " +
-      "running balance. This is the tool for 'what do they owe', 'what have they paid', and any " +
-      "question about money on a lease.",
-    path: "leases/{leaseId}/charges/ledger",
-    schema: {
-      leaseId,
-      limit: z.number().int().min(1).optional().describe("Most recent N entries. Omit for the full ledger."),
-      asOf: z.string().optional().describe("Balance as at this date, YYYY-MM-DD. Omit for today."),
-    },
-  },
-  {
-    name: "get_lease_deposit_ledger",
-    title: "Get the deposit ledger",
-    description:
-      "The lease's security deposit ledger — what was held, released or applied, with a running " +
-      "balance. Separate from the charge ledger.",
-    path: "leases/{leaseId}/deposits/ledger",
-    schema: {
-      leaseId,
-      limit: z.number().int().min(1).optional().describe("Most recent N entries. Omit for the full ledger."),
-      asOf: z.string().optional().describe("Balance as at this date, YYYY-MM-DD. Omit for today."),
     },
   },
   {
@@ -156,15 +167,6 @@ export const leaseTools: ToolDefinition[] = [
   },
 
   {
-    name: "list_lease_auto_pays",
-    title: "List autopay arrangements",
-    description:
-      "The autopay arrangements tenants have set up on this lease — amount, schedule and account. " +
-      "Use for 'is this tenant on autopay' questions.",
-    path: "leases/{leaseId}/auto-pays",
-    schema: { leaseId },
-  },
-  {
     name: "list_lease_renewals",
     title: "List lease renewals",
     description:
@@ -173,34 +175,6 @@ export const leaseTools: ToolDefinition[] = [
     path: "leases/renewals",
     paginated: true,
     schema: {},
-  },
-  {
-    name: "list_lease_renewal_offers",
-    title: "List renewal offers for a lease",
-    description: "The renewal offers made on one lease, with the terms offered and their status.",
-    path: "leases/{leaseId}/renewals",
-    paginated: true,
-    schema: { leaseId },
-  },
-  {
-    name: "list_lease_move_outs",
-    title: "List move-outs for a lease",
-    description:
-      "The move-out records for one lease — notice date, expected and actual move-out dates, and " +
-      "where the move-out has got to.",
-    path: "leases/{leaseId}/move-outs",
-    paginated: true,
-    schema: { leaseId },
-  },
-  {
-    name: "list_lease_subsidies",
-    title: "List lease subsidies",
-    description:
-      "Subsidies on a lease — housing assistance paying part of the rent, and how much of the rent " +
-      "the tenant is responsible for.",
-    path: "leases/{leaseId}/subsidies",
-    paginated: true,
-    schema: { leaseId },
   },
   {
     name: "list_lease_documents",
@@ -216,21 +190,5 @@ export const leaseTools: ToolDefinition[] = [
       unitId: z.string().optional().describe("Only documents for this unit."),
       portfolioId: z.string().optional().describe("Only documents in this portfolio."),
     },
-  },
-  {
-    name: "list_lease_files",
-    title: "List files attached to a lease",
-    description:
-      "Files attached to a lease, with their names and types. Metadata only — this does not return " +
-      "file contents.",
-    path: "leases/{leaseId}/files",
-    schema: { leaseId },
-  },
-  {
-    name: "get_lease_custom_fields",
-    title: "Get a lease's custom fields",
-    description: "The company-defined custom fields recorded against a lease, and their values.",
-    path: "leases/{leaseId}/custom-fields",
-    schema: { leaseId },
   },
 ];

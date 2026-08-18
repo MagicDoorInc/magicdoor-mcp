@@ -23,8 +23,11 @@ export interface ToolDefinition {
    */
   path: string | ((args: Record<string, unknown>) => string);
   schema: z.ZodRawShape;
-  /** Adds page/pageSize and defaults the size, for endpoints that return a page. */
-  paginated?: boolean;
+  /**
+   * Adds page/pageSize and defaults the size, for endpoints that return a page. A predicate
+   * instead, for a tool that pages when listing but fetches a single record when given an id.
+   */
+  paginated?: boolean | ((args: Record<string, unknown>) => boolean);
   /** Arguments the path function used to choose an endpoint, which must not become query parameters. */
   consumes?: string[];
 }
@@ -39,6 +42,8 @@ const DEFAULT_PAGE_SIZE = 25;
 
 export function registerTool(server: McpServer, client: MagicDoorClient, tool: ToolDefinition): void {
   const inputSchema = tool.paginated ? { ...pagination, ...tool.schema } : tool.schema;
+  const pages = (args: Record<string, unknown>) =>
+    typeof tool.paginated === "function" ? tool.paginated(args) : Boolean(tool.paginated);
 
   server.registerTool(
     tool.name,
@@ -47,7 +52,7 @@ export function registerTool(server: McpServer, client: MagicDoorClient, tool: T
       try {
         const template = typeof tool.path === "function" ? tool.path(args) : tool.path;
         const { path, query } = applyPathParameters(template, args, tool.consumes);
-        if (tool.paginated && query.pageSize === undefined) {
+        if (pages(args) && query.pageSize === undefined) {
           query.pageSize = DEFAULT_PAGE_SIZE;
         }
 
