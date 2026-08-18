@@ -111,6 +111,16 @@ property?"*
 | `list_vendor_categories` / `list_maintenance_request_categories` | How is work classified? |
 | `list_run_books` / `get_run_book` | What's our process for this kind of problem? |
 
+**Conversations**
+
+| Tool | Answers questions like |
+|---|---|
+| `list_chats` | What are people asking about? Which chats are still open? |
+| `get_chat` | Who's in this conversation, and what's it about? |
+| `get_chat_messages` | What was actually said? |
+| `list_unread_messages` | What needs a response? |
+| `search_chat_messages` | Did anyone mention the boiler? |
+
 **Every tool is read-only.** There is no way to create, change or delete anything in MagicDoor
 through this server, by design.
 

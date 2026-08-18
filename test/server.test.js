@@ -46,6 +46,7 @@ describe("tool surface", () => {
       "list_leases", "get_lease", "get_lease_ledger",
       "list_bank_accounts", "list_chart_of_accounts", "get_transaction", "get_balance_sheet",
       "list_maintenance_requests", "list_work_orders", "list_vendors", "get_work_order_history",
+      "list_chats", "get_chat_messages", "list_unread_messages", "search_chat_messages",
     ]) {
       assert.ok(names.includes(expected), `missing ${expected}`);
     }
@@ -203,7 +204,7 @@ describe("lease coverage", () => {
   test("exposes no way to write", async () => {
     const { tools } = (await mcp.call("tools/list")).result;
     for (const tool of tools) {
-      assert.match(tool.name, /^(list|get)_/, `${tool.name} does not read`);
+      assert.match(tool.name, /^(list|get|search)_/, `${tool.name} is not a read`);
     }
   });
 });
@@ -293,5 +294,26 @@ describe("maintenance", () => {
     const token = stub.requests.at(-1).auth;
     assert.equal(accountingStub.requests.at(-1).auth, token);
     assert.equal(maintenanceStub.requests.at(-1).auth, token);
+  });
+});
+
+describe("chats", () => {
+  test("reads a conversation's messages from the portal", async () => {
+    await callTool("get_chat_messages", { chatId: "5150", take: 20, search: "leak" });
+
+    const request = stub.requests.at(-1);
+    assert.equal(request.path, "/company-app/chats/5150/messages");
+    assert.equal(request.query.take, "20");
+    assert.equal(request.query.search, "leak");
+  });
+
+  test("does not page a chat listing the API returns whole", async () => {
+    await callTool("list_chats", { closed: false });
+    assert.deepEqual(Object.keys(stub.requests.at(-1).query), ["closed"]);
+  });
+
+  test("pages the message searches", async () => {
+    await callTool("search_chat_messages", { search: "boiler" });
+    assert.equal(stub.requests.at(-1).query.pageSize, "25");
   });
 });
