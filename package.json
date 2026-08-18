@@ -1,0 +1,25 @@
+{
+  "name": "@magicdoor/mcp",
+  "version": "0.1.0",
+  "description": "MCP server for MagicDoor — read your properties, units, leases, tenants and owners from an AI assistant.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "bin": { "magicdoor-mcp": "dist/index.js" },
+  "main": "dist/index.js",
+  "files": ["dist", "README.md"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}
