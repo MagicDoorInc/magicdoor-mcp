@@ -18,6 +18,16 @@ const reportType = z
   .enum(["Property", "Company"])
   .describe("Property reports on the properties' own books; Company reports on the management company's.");
 
+/** The dashboard serves each headline figure from its own endpoint. */
+const SUMMARY_PATHS = {
+  onTimeRent: "on-time-rent",
+  onlinePayments: "online-payments",
+  dailyMoneyMovement: "daily-money-movement",
+  returnsAndDisputes: "returns-and-disputes",
+} as const;
+
+type SummaryName = keyof typeof SUMMARY_PATHS;
+
 const startDate = z.string().describe("First day to include, YYYY-MM-DD.");
 const endDate = z.string().describe("Last day to include, YYYY-MM-DD.");
 
@@ -222,41 +232,27 @@ export const accountingTools: ToolDefinition[] = [
   // ---- Dashboard summaries ------------------------------------------------------------------
 
   {
-    name: "get_on_time_rent_summary",
-    title: "Get the on-time rent summary",
+    name: "get_accounting_summary",
+    title: "Get an accounting headline figure",
     description:
-      "How much rent was paid on time recently, as a headline figure. Cheaper than totalling the " +
-      "ledgers when the question is just 'are tenants paying on time'.",
+      "A single headline figure the dashboard shows, without totalling ledgers: how much rent was " +
+      "paid on time, how much is paid online rather than by cheque, money in and out per day, or " +
+      "payments that bounced or were disputed.",
     service: "accounting",
-    path: "dashboard/on-time-rent",
-    schema: {},
+    path: (args) => {
+      const segment = SUMMARY_PATHS[args.summary as SummaryName];
+      if (!segment) {
+        throw new Error(`summary must be one of: ${Object.keys(SUMMARY_PATHS).join(", ")}.`);
+      }
+
+      return `dashboard/${segment}`;
+    },
+    consumes: ["summary"],
+    schema: {
+      summary: z
+        .enum(["onTimeRent", "onlinePayments", "dailyMoneyMovement", "returnsAndDisputes"])
+        .describe("Which headline figure to fetch."),
+    },
   },
-  {
-    name: "get_online_payments_summary",
-    title: "Get the online payments summary",
-    description:
-      "How much is being paid online rather than by cheque or cash, as a headline figure. Use for " +
-      "questions about payment method adoption.",
-    service: "accounting",
-    path: "dashboard/online-payments",
-    schema: {},
-  },
-  {
-    name: "get_daily_money_movement",
-    title: "Get daily money movement",
-    description: "Money in and out per day recently, for questions about very recent cash activity.",
-    service: "accounting",
-    path: "dashboard/daily-money-movement",
-    schema: {},
-  },
-  {
-    name: "get_returns_and_disputes",
-    title: "Get returns and disputes",
-    description:
-      "Payments that bounced or were disputed recently. Use for questions about failed tenant " +
-      "payments and chargebacks.",
-    service: "accounting",
-    path: "dashboard/returns-and-disputes",
-    schema: {},
-  },
+
 ];

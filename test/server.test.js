@@ -169,9 +169,30 @@ describe("lease coverage", () => {
     assert.deepEqual(Object.keys(request.query), ["limit"]);
   });
 
-  test("builds nested transaction paths correctly", async () => {
-    await callTool("get_lease_payment", { leaseId: "7412", paymentId: "99" });
-    assert.equal(stub.requests.at(-1).path, "/company-app/leases/7412/charges/payments/99");
+  test("reaches every ledger entry kind through one tool", async () => {
+    const expected = {
+      charge: "/company-app/leases/7412/charges/99",
+      payment: "/company-app/leases/7412/charges/payments/99",
+      credit: "/company-app/leases/7412/charges/credits/99",
+      lateFee: "/company-app/leases/7412/charges/late-fees/99",
+      transfer: "/company-app/leases/7412/charges/transfers/99",
+      deposit: "/company-app/leases/7412/deposits/99",
+    };
+
+    for (const [type, path] of Object.entries(expected)) {
+      await callTool("get_lease_transaction", { leaseId: "7412", transactionId: "99", type });
+      assert.equal(stub.requests.at(-1).path, path, `${type} went to the wrong endpoint`);
+      assert.deepEqual(Object.keys(stub.requests.at(-1).query), [], `${type} leaked its selector`);
+    }
+  });
+
+  test("reaches every recurring kind through one tool", async () => {
+    for (const [type, segment] of Object.entries({
+      charges: "recurring-charges", credits: "recurring-credits", payments: "recurring-payments",
+    })) {
+      await callTool("list_lease_recurring_items", { leaseId: "7412", type });
+      assert.equal(stub.requests.at(-1).path, `/company-app/leases/7412/charges/${segment}`);
+    }
   });
 
   test("does not page endpoints that return a single record", async () => {
@@ -194,8 +215,9 @@ describe("lease coverage", () => {
     const { tools } = (await mcp.call("tools/list")).result;
     const names = new Set(tools.map((tool) => tool.name));
     for (const expected of [
-      "get_lease", "get_lease_ledger", "get_lease_deposit_ledger", "list_lease_recurring_charges",
-      "list_lease_auto_pays", "list_lease_renewal_offers", "list_lease_subsidies", "list_lease_documents",
+      "get_lease", "get_lease_ledger", "get_lease_deposit_ledger", "get_lease_transaction",
+      "list_lease_recurring_items", "list_lease_auto_pays", "list_lease_renewal_offers",
+      "list_lease_subsidies", "list_lease_documents",
     ]) {
       assert.ok(names.has(expected), `missing ${expected}`);
     }
@@ -315,5 +337,44 @@ describe("chats", () => {
   test("pages the message searches", async () => {
     await callTool("search_chat_messages", { search: "boiler" });
     assert.equal(stub.requests.at(-1).query.pageSize, "25");
+  });
+});
+
+describe("collapsed tools", () => {
+  test("reaches every dashboard figure through one tool", async () => {
+    for (const [summary, segment] of Object.entries({
+      onTimeRent: "on-time-rent", onlinePayments: "online-payments",
+      dailyMoneyMovement: "daily-money-movement", returnsAndDisputes: "returns-and-disputes",
+    })) {
+      await callTool("get_accounting_summary", { summary });
+      assert.equal(accountingStub.requests.at(-1).path, `/company-portal/dashboard/${segment}`);
+      assert.deepEqual(Object.keys(accountingStub.requests.at(-1).query), []);
+    }
+  });
+
+  test("rejects a selector that maps to no endpoint", async () => {
+    const result = await callTool("get_lease_transaction", {
+      leaseId: "1", transactionId: "2", type: "refund",
+    });
+    assert.equal(result.isError, true);
+  });
+
+  test("the collapsed tools did not shrink what is reachable", async () => {
+    const { tools } = (await mcp.call("tools/list")).result;
+    const names = tools.map((tool) => tool.name);
+
+    for (const gone of [
+      "get_lease_charge", "get_lease_payment", "get_lease_credit", "get_lease_late_fee",
+      "get_lease_transfer", "get_lease_deposit", "list_lease_recurring_charges",
+      "get_on_time_rent_summary", "get_returns_and_disputes",
+    ]) {
+      assert.ok(!names.includes(gone), `${gone} should have been folded in`);
+    }
+
+    for (const replacement of [
+      "get_lease_transaction", "list_lease_recurring_items", "get_accounting_summary",
+    ]) {
+      assert.ok(names.includes(replacement), `missing ${replacement}`);
+    }
   });
 });

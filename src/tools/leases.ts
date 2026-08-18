@@ -6,6 +6,26 @@ import type { ToolDefinition } from "../registry.js";
 
 const leaseId = z.string().describe("The lease id, as returned by list_leases.");
 
+/** Each kind of ledger entry hangs off a different sub-path of the lease. */
+const LEDGER_ENTRY_PATHS = {
+  charge: "charges",
+  payment: "charges/payments",
+  credit: "charges/credits",
+  lateFee: "charges/late-fees",
+  transfer: "charges/transfers",
+  deposit: "deposits",
+} as const;
+
+type LedgerEntryType = keyof typeof LEDGER_ENTRY_PATHS;
+
+const RECURRING_PATHS = {
+  charges: "recurring-charges",
+  credits: "recurring-credits",
+  payments: "recurring-payments",
+} as const;
+
+type RecurringType = keyof typeof RECURRING_PATHS;
+
 export const leaseTools: ToolDefinition[] = [
   {
     name: "list_leases",
@@ -88,79 +108,53 @@ export const leaseTools: ToolDefinition[] = [
     },
   },
   {
-    name: "get_lease_charge",
-    title: "Get a charge",
-    description: "One charge on a lease in full, including how much of it has been settled.",
-    path: "leases/{leaseId}/charges/{chargeId}",
-    schema: { leaseId, chargeId: z.string().describe("The charge id, from the lease ledger.") },
-  },
-  {
-    name: "get_lease_payment",
-    title: "Get a payment",
-    description: "One payment against a lease in full, including what it was applied to.",
-    path: "leases/{leaseId}/charges/payments/{paymentId}",
-    schema: { leaseId, paymentId: z.string().describe("The payment id, from the lease ledger.") },
-  },
-  {
-    name: "get_lease_credit",
-    title: "Get a credit",
+    name: "get_lease_transaction",
+    title: "Get one entry from a lease ledger",
     description:
-      "One credit issued against a lease in full — the amount, the reason it was given, and what it " +
-      "was applied to.",
-    path: "leases/{leaseId}/charges/credits/{creditId}",
-    schema: { leaseId, creditId: z.string().describe("The credit id, from the lease ledger.") },
+      "One entry from a lease's ledger in full — a charge, payment, credit, late fee, transfer or " +
+      "deposit. Take the id and its kind from get_lease_ledger or get_lease_deposit_ledger, then " +
+      "use this to see everything about that entry.",
+    path: (args) => {
+      const segment = LEDGER_ENTRY_PATHS[args.type as LedgerEntryType];
+      if (!segment) {
+        throw new Error(`type must be one of: ${Object.keys(LEDGER_ENTRY_PATHS).join(", ")}.`);
+      }
+
+      return `leases/{leaseId}/${segment}/{transactionId}`;
+    },
+    consumes: ["type"],
+    schema: {
+      leaseId,
+      transactionId: z.string().describe("The entry's id, from a ledger."),
+      type: z
+        .enum(["charge", "payment", "credit", "lateFee", "transfer", "deposit"])
+        .describe("What kind of entry it is, as shown in the ledger it came from."),
+    },
   },
   {
-    name: "get_lease_late_fee",
-    title: "Get a late fee",
+    name: "list_lease_recurring_items",
+    title: "List what recurs on a lease",
     description:
-      "One late fee charged on a lease — the amount, when it was applied, and the overdue charge " +
-      "that triggered it.",
-    path: "leases/{leaseId}/charges/late-fees/{lateFeeId}",
-    schema: { leaseId, lateFeeId: z.string().describe("The late fee id, from the lease ledger.") },
-  },
-  {
-    name: "get_lease_transfer",
-    title: "Get a transfer",
-    description: "One ledger transfer on a lease, moving money between the lease and elsewhere.",
-    path: "leases/{leaseId}/charges/transfers/{transferId}",
-    schema: { leaseId, transferId: z.string().describe("The transfer id, from the lease ledger.") },
-  },
-  {
-    name: "get_lease_deposit",
-    title: "Get a deposit",
-    description:
-      "One security deposit held against a lease — the amount held, and whether any of it has been " +
-      "released or applied.",
-    path: "leases/{leaseId}/deposits/{depositId}",
-    schema: { leaseId, depositId: z.string().describe("The deposit id, from the deposit ledger.") },
-  },
-  {
-    name: "list_lease_recurring_charges",
-    title: "List recurring charges",
-    description:
-      "The charges that post automatically on a schedule — rent and any recurring add-ons. Use to " +
-      "explain what a tenant is billed each period, as opposed to what has already posted.",
-    path: "leases/{leaseId}/charges/recurring-charges",
+      "The charges, credits or payments that apply automatically on a schedule. Use to explain " +
+      "what a tenant is billed or credited each period, as opposed to what has already posted.",
+    path: (args) => {
+      const segment = RECURRING_PATHS[args.type as RecurringType];
+      if (!segment) {
+        throw new Error(`type must be one of: ${Object.keys(RECURRING_PATHS).join(", ")}.`);
+      }
+
+      return `leases/{leaseId}/charges/${segment}`;
+    },
+    consumes: ["type"],
     paginated: true,
-    schema: { leaseId },
+    schema: {
+      leaseId,
+      type: z
+        .enum(["charges", "credits", "payments"])
+        .describe("Which kind of recurring item to list."),
+    },
   },
-  {
-    name: "list_lease_recurring_credits",
-    title: "List recurring credits",
-    description: "Credits that apply automatically on a schedule, such as a standing concession.",
-    path: "leases/{leaseId}/charges/recurring-credits",
-    paginated: true,
-    schema: { leaseId },
-  },
-  {
-    name: "list_lease_recurring_payments",
-    title: "List recurring payments",
-    description: "Payments scheduled to be taken automatically, separate from tenant-run autopay.",
-    path: "leases/{leaseId}/charges/recurring-payments",
-    paginated: true,
-    schema: { leaseId },
-  },
+
   {
     name: "list_lease_auto_pays",
     title: "List autopay arrangements",

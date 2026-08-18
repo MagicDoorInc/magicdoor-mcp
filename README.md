@@ -58,8 +58,8 @@ property?"*
 |---|---|
 | `get_lease_ledger` | What do they owe? What have they paid? |
 | `get_lease_deposit_ledger` | What deposit is held, and what's been released? |
-| `get_lease_charge` / `get_lease_payment` / `get_lease_credit` / `get_lease_late_fee` / `get_lease_transfer` / `get_lease_deposit` | Drill into one entry from a ledger. |
-| `list_lease_recurring_charges` / `..._credits` / `..._payments` | What is billed each period, as opposed to what has posted? |
+| `get_lease_transaction` | Drill into one ledger entry — charge, payment, credit, late fee, transfer or deposit. |
+| `list_lease_recurring_items` | What is billed or credited each period, as opposed to what has posted? |
 | `list_lease_auto_pays` | Is this tenant on autopay? |
 
 **Lifecycle and paperwork**
@@ -94,7 +94,7 @@ property?"*
 | `get_general_ledger` | Every posting to an account — narrow it, it gets large. |
 | `get_rent_payments_report` | What rent came in, and how was it paid? |
 | `get_owner_statement` | What does this owner get? |
-| `get_on_time_rent_summary` / `get_online_payments_summary` / `get_daily_money_movement` / `get_returns_and_disputes` | Headline figures without totalling ledgers. |
+| `get_accounting_summary` | Headline figures — on-time rent, online payments, daily money movement, returns and disputes. |
 
 **Maintenance** *(served by MagicDoor's maintenance service)*
 

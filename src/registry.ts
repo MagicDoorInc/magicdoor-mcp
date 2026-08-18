@@ -16,11 +16,17 @@ export interface ToolDefinition {
   description: string;
   /** Which MagicDoor service serves this endpoint. Defaults to the portal API. */
   service?: ServiceName;
-  /** Path under that service's property-manager area, with `{argument}` placeholders. */
-  path: string;
+  /**
+   * Path under that service's property-manager area, with `{argument}` placeholders. A function
+   * instead, when one tool covers several endpoints that differ only by a path segment — the
+   * argument that selects between them is consumed rather than sent as a query parameter.
+   */
+  path: string | ((args: Record<string, unknown>) => string);
   schema: z.ZodRawShape;
   /** Adds page/pageSize and defaults the size, for endpoints that return a page. */
   paginated?: boolean;
+  /** Arguments the path function used to choose an endpoint, which must not become query parameters. */
+  consumes?: string[];
 }
 
 /** Every paginated endpoint takes these, and they are described identically everywhere. */
@@ -39,7 +45,8 @@ export function registerTool(server: McpServer, client: MagicDoorClient, tool: T
     { title: tool.title, description: tool.description, inputSchema },
     async (args: Record<string, unknown>) => {
       try {
-        const { path, query } = applyPathParameters(tool.path, args);
+        const template = typeof tool.path === "function" ? tool.path(args) : tool.path;
+        const { path, query } = applyPathParameters(template, args, tool.consumes);
         if (tool.paginated && query.pageSize === undefined) {
           query.pageSize = DEFAULT_PAGE_SIZE;
         }
@@ -61,8 +68,13 @@ export function registerTool(server: McpServer, client: MagicDoorClient, tool: T
 function applyPathParameters(
   template: string,
   args: Record<string, unknown>,
+  consumes: string[] = [],
 ): { path: string; query: Record<string, QueryValue> } {
   const query: Record<string, QueryValue> = { ...(args as Record<string, QueryValue>) };
+
+  for (const name of consumes) {
+    delete query[name];
+  }
 
   const path = template.replace(/\{(\w+)\}/g, (_, name: string) => {
     const value = args[name];
