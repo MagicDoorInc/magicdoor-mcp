@@ -73,6 +73,29 @@ property?"*
 | `list_lease_documents` | Has the lease been signed? |
 | `list_lease_files` / `get_lease_custom_fields` | What else is recorded against this lease? |
 
+**Accounting** *(served by MagicDoor's accounting service)*
+
+| Tool | Answers questions like |
+|---|---|
+| `list_bank_accounts` / `get_bank_account` | What accounts do we hold, and what's in them? |
+| `list_chart_of_accounts` / `get_chart_of_account` | How are the books structured? |
+| `get_transaction` | What was this transaction? |
+| `list_bank_ledger_transfers` / `get_bank_ledger_transfer` | What moved between accounts? |
+| `list_manual_journal_entries` / `get_manual_journal_entry` | What adjustments were posted by hand? |
+| `list_deposit_slips` | Which payments were banked together? |
+
+**Financial reports**
+
+| Tool | Answers questions like |
+|---|---|
+| `get_balance_sheet` | What are we worth, as at a date? |
+| `get_income_statement` | How did we do over a period? |
+| `get_cash_flow_statement` | What moved in and out, by month or property? |
+| `get_general_ledger` | Every posting to an account — narrow it, it gets large. |
+| `get_rent_payments_report` | What rent came in, and how was it paid? |
+| `get_owner_statement` | What does this owner get? |
+| `get_on_time_rent_summary` / `get_online_payments_summary` / `get_daily_money_movement` / `get_returns_and_disputes` | Headline figures without totalling ledgers. |
+
 **Every tool is read-only.** There is no way to create, change or delete anything in MagicDoor
 through this server, by design.
 
@@ -83,7 +106,8 @@ through this server, by design.
 | `MAGICDOOR_API_KEY` | yes | — | The key you created in MagicDoor. |
 | `MAGICDOOR_ENV` | no | `production` | `production`, `staging`, `demo` or `development`. |
 | `MAGICDOOR_AUTH_URL` | no | from `MAGICDOOR_ENV` | Override the auth host, for local development. |
-| `MAGICDOOR_API_URL` | no | from `MAGICDOOR_ENV` | Override the API host, for local development. |
+| `MAGICDOOR_API_URL` | no | from `MAGICDOOR_ENV` | Override the portal API host, for local development. |
+| `MAGICDOOR_ACCOUNTING_URL` | no | from `MAGICDOOR_ENV` | Override the accounting host, for local development. |
 
 ## How access works
 

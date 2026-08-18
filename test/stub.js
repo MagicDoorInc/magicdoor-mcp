@@ -32,6 +32,7 @@ export function startStub() {
     }
 
     requests.push({
+      host: req.headers.host ?? "",
       path: url.pathname,
       query: Object.fromEntries(url.searchParams),
       all: [...url.searchParams.entries()],

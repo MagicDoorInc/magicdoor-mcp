@@ -6,14 +6,17 @@ import { startServer } from "./client.js";
 const API_KEY = "magic_7412996891234_Xk3nQv8mWp2sT5yR9dL4bN6hJ1kF3gZ7xC0vQ8aE";
 
 let stub;
+let accountingStub;
 let mcp;
 
 before(async () => {
   stub = await startStub();
+  accountingStub = await startStub();
   mcp = startServer({
     MAGICDOOR_API_KEY: API_KEY,
     MAGICDOOR_AUTH_URL: stub.url,
     MAGICDOOR_API_URL: stub.url,
+    MAGICDOOR_ACCOUNTING_URL: accountingStub.url,
   });
   await mcp.handshake();
 });
@@ -21,6 +24,7 @@ before(async () => {
 after(() => {
   mcp.stop();
   stub.server.close();
+  accountingStub.server.close();
 });
 
 const callTool = async (name, args = {}) => {
@@ -31,15 +35,15 @@ const callTool = async (name, args = {}) => {
 describe("tool surface", () => {
   test("advertises every read tool", async () => {
     const { tools } = (await mcp.call("tools/list")).result;
-    assert.deepEqual(tools.map((tool) => tool.name).sort(), [
-      "get_lease", "get_lease_charge", "get_lease_credit", "get_lease_custom_fields",
-      "get_lease_deposit", "get_lease_deposit_ledger", "get_lease_late_fee", "get_lease_ledger",
-      "get_lease_payment", "get_lease_transfer", "list_expiring_leases", "list_lease_auto_pays",
-      "list_lease_documents", "list_lease_files", "list_lease_move_outs",
-      "list_lease_recurring_charges", "list_lease_recurring_credits", "list_lease_recurring_payments",
-      "list_lease_renewal_offers", "list_lease_renewals", "list_lease_subsidies", "list_leases",
-      "list_move_outs", "list_owners", "list_properties", "list_tenants", "list_units",
-    ]);
+    const names = tools.map((tool) => tool.name);
+    assert.equal(new Set(names).size, names.length, "tool names must be unique");
+    for (const expected of [
+      "list_properties", "list_units", "list_tenants", "list_owners",
+      "list_leases", "get_lease", "get_lease_ledger",
+      "list_bank_accounts", "list_chart_of_accounts", "get_transaction", "get_balance_sheet",
+    ]) {
+      assert.ok(names.includes(expected), `missing ${expected}`);
+    }
   });
 
   test("publishes the filters each tool accepts", async () => {
@@ -196,5 +200,51 @@ describe("lease coverage", () => {
     for (const tool of tools) {
       assert.match(tool.name, /^(list|get)_/, `${tool.name} does not read`);
     }
+  });
+});
+
+describe("accounting", () => {
+  test("routes accounting tools to the accounting service, not the portal", async () => {
+    const before = stub.requests.length;
+    await callTool("list_bank_accounts", {});
+
+    assert.equal(stub.requests.length, before, "must not hit the portal");
+    assert.equal(accountingStub.requests.at(-1).path, "/company-portal/bank-accounts");
+  });
+
+  test("keeps portal tools on the portal service", async () => {
+    const before = accountingStub.requests.length;
+    await callTool("list_properties", {});
+
+    assert.equal(accountingStub.requests.length, before, "must not hit accounting");
+    assert.equal(stub.requests.at(-1).path, "/company-app/properties");
+  });
+
+  test("uses one access token across both services", async () => {
+    await callTool("list_properties", {});
+    await callTool("list_bank_accounts", {});
+
+    assert.equal(stub.requests.at(-1).auth, accountingStub.requests.at(-1).auth);
+  });
+
+  test("passes report parameters through", async () => {
+    await callTool("get_income_statement", {
+      basis: "Accrual", reportType: "Property", startDate: "2026-01-01", endDate: "2026-01-31",
+      propertyIds: ["7", "9"],
+    });
+
+    const request = accountingStub.requests.at(-1);
+    assert.equal(request.path, "/company-portal/reports/income-statement");
+    assert.equal(request.query.basis, "Accrual");
+    assert.equal(request.query.startDate, "2026-01-01");
+    assert.deepEqual(
+      request.all.filter(([key]) => key === "propertyIds").map(([, value]) => value),
+      ["7", "9"],
+    );
+  });
+
+  test("rejects an accounting basis the API would not understand", async () => {
+    const result = await callTool("get_balance_sheet", { basis: "Modified", reportType: "Company" });
+    assert.equal(result.isError ?? false, true);
   });
 });

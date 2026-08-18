@@ -8,12 +8,15 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { MagicDoorClient, QueryValue } from "./client.js";
+import type { ServiceName } from "./config.js";
 
 export interface ToolDefinition {
   name: string;
   title: string;
   description: string;
-  /** Path under the company-app area, with `{argument}` placeholders. */
+  /** Which MagicDoor service serves this endpoint. Defaults to the portal API. */
+  service?: ServiceName;
+  /** Path under that service's property-manager area, with `{argument}` placeholders. */
   path: string;
   schema: z.ZodRawShape;
   /** Adds page/pageSize and defaults the size, for endpoints that return a page. */
@@ -41,7 +44,7 @@ export function registerTool(server: McpServer, client: MagicDoorClient, tool: T
           query.pageSize = DEFAULT_PAGE_SIZE;
         }
 
-        const result = await client.get(path, query);
+        const result = await client.get(tool.service ?? "portal", path, query);
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       } catch (error) {
         // Returned as tool output rather than thrown, so the model can explain the problem or

@@ -3,9 +3,10 @@ import type { MagicDoorClient } from "../client.js";
 import { registerTool, type ToolDefinition } from "../registry.js";
 import { portfolioTools } from "./portfolio.js";
 import { leaseTools } from "./leases.js";
+import { accountingTools } from "./accounting.js";
 
 /** Every tool this server exposes. All read-only — nothing here writes to MagicDoor. */
-export const allTools: ToolDefinition[] = [...portfolioTools, ...leaseTools];
+export const allTools: ToolDefinition[] = [...portfolioTools, ...leaseTools, ...accountingTools];
 
 export function registerTools(server: McpServer, client: MagicDoorClient): void {
   for (const tool of allTools) {

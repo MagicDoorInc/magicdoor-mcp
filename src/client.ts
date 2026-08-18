@@ -1,7 +1,8 @@
 /**
- * Calls the MagicDoor property-manager API with an access token obtained from the API key.
+ * Calls MagicDoor's property-manager APIs with an access token obtained from the API key.
+ * One token works across every service — they all trust the same issuer.
  */
-import type { Config } from "./config.js";
+import type { Config, ServiceName } from "./config.js";
 import type { TokenProvider } from "./auth.js";
 
 export type QueryValue = string | number | boolean | string[] | undefined | null;
@@ -13,11 +14,12 @@ export class MagicDoorClient {
   ) {}
 
   /**
-   * A GET against the company-app area. Retries once on a 401: the access token may simply have
-   * aged out between the expiry check and the request landing.
+   * A GET against one of MagicDoor's services. Retries once on a 401: the access token may simply
+   * have aged out between the expiry check and the request landing.
    */
-  async get(path: string, query: Record<string, QueryValue> = {}): Promise<unknown> {
-    const url = `${this.config.apiUrl}/company-app/${path}${buildQuery(query)}`;
+  async get(service: ServiceName, path: string, query: Record<string, QueryValue> = {}): Promise<unknown> {
+    const endpoint = this.config.services[service];
+    const url = `${endpoint.url}/${endpoint.area}/${path}${buildQuery(query)}`;
 
     let response = await this.send(url, await this.tokens.getToken());
     if (response.status === 401) {
@@ -64,6 +66,6 @@ function buildQuery(query: Record<string, QueryValue>): string {
     }
   }
 
-  const query_string = params.toString();
-  return query_string ? `?${query_string}` : "";
+  const queryString = params.toString();
+  return queryString ? `?${queryString}` : "";
 }
