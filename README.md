@@ -26,7 +26,7 @@ assistant should have — `properties:read`, `units:read`, `leases:read`, `tenan
 }
 ```
 
-For Claude Code, `claude mcp add magicdoor --env MAGICDOOR_API_KEY=magic_… -- npx -y @magicdoor/mcp`
+For Claude Code, `claude mcp add magicdoor -e MAGICDOOR_API_KEY=magic_… -- npx -y @magicdoor/mcp`
 does the same thing.
 
 **3. Restart the assistant.** Ask it something like *"how many units do we have in the Oak Street
