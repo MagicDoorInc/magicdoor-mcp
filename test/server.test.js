@@ -7,16 +7,19 @@ const API_KEY = "magic_7412996891234_Xk3nQv8mWp2sT5yR9dL4bN6hJ1kF3gZ7xC0vQ8aE";
 
 let stub;
 let accountingStub;
+let maintenanceStub;
 let mcp;
 
 before(async () => {
   stub = await startStub();
   accountingStub = await startStub();
+  maintenanceStub = await startStub();
   mcp = startServer({
     MAGICDOOR_API_KEY: API_KEY,
     MAGICDOOR_AUTH_URL: stub.url,
     MAGICDOOR_API_URL: stub.url,
     MAGICDOOR_ACCOUNTING_URL: accountingStub.url,
+    MAGICDOOR_MAINTENANCE_URL: maintenanceStub.url,
   });
   await mcp.handshake();
 });
@@ -25,6 +28,7 @@ after(() => {
   mcp.stop();
   stub.server.close();
   accountingStub.server.close();
+  maintenanceStub.server.close();
 });
 
 const callTool = async (name, args = {}) => {
@@ -41,6 +45,7 @@ describe("tool surface", () => {
       "list_properties", "list_units", "list_tenants", "list_owners",
       "list_leases", "get_lease", "get_lease_ledger",
       "list_bank_accounts", "list_chart_of_accounts", "get_transaction", "get_balance_sheet",
+      "list_maintenance_requests", "list_work_orders", "list_vendors", "get_work_order_history",
     ]) {
       assert.ok(names.includes(expected), `missing ${expected}`);
     }
@@ -246,5 +251,47 @@ describe("accounting", () => {
   test("rejects an accounting basis the API would not understand", async () => {
     const result = await callTool("get_balance_sheet", { basis: "Modified", reportType: "Company" });
     assert.equal(result.isError ?? false, true);
+  });
+});
+
+describe("maintenance", () => {
+  test("routes maintenance tools to the maintenance service", async () => {
+    const portalBefore = stub.requests.length;
+    const accountingBefore = accountingStub.requests.length;
+
+    await callTool("list_work_orders", {});
+
+    assert.equal(stub.requests.length, portalBefore, "must not hit the portal");
+    assert.equal(accountingStub.requests.length, accountingBefore, "must not hit accounting");
+    assert.equal(maintenanceStub.requests.at(-1).path, "/company-portal/work-orders");
+  });
+
+  test("builds nested maintenance paths", async () => {
+    await callTool("get_recurring_work_order_stats", { recurringWorkOrderId: "88" });
+    assert.equal(maintenanceStub.requests.at(-1).path, "/company-portal/work-orders/recurring/88/stats");
+  });
+
+  test("passes status filters as repeated parameters", async () => {
+    await callTool("list_work_orders", { status: ["Pending", "InProgress"] });
+    const statuses = maintenanceStub.requests
+      .at(-1)
+      .all.filter(([key]) => key === "status")
+      .map(([, value]) => value);
+    assert.deepEqual(statuses, ["Pending", "InProgress"]);
+  });
+
+  test("rejects a status the API would not understand", async () => {
+    const result = await callTool("list_work_orders", { status: ["Started"] });
+    assert.equal(result.isError ?? false, true);
+  });
+
+  test("all three services share one access token", async () => {
+    await callTool("list_properties", {});
+    await callTool("list_bank_accounts", {});
+    await callTool("list_vendors", {});
+
+    const token = stub.requests.at(-1).auth;
+    assert.equal(accountingStub.requests.at(-1).auth, token);
+    assert.equal(maintenanceStub.requests.at(-1).auth, token);
   });
 });

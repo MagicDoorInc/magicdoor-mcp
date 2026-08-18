@@ -4,7 +4,7 @@
  */
 
 /** MagicDoor is several services; a tool names the one it reads from. */
-export type ServiceName = "portal" | "accounting";
+export type ServiceName = "portal" | "accounting" | "maintenance";
 
 export interface Config {
   apiKey: string;
@@ -23,21 +23,25 @@ const ENVIRONMENTS = {
     auth: "https://auth.magicdoor.com",
     portal: "https://api.portal.magicdoor.com",
     accounting: "https://accounting.magicdoor.com",
+    maintenance: "https://services.magicdoor.com/maintenance",
   },
   staging: {
     auth: "https://auth.magicdoor-test.com",
     portal: "https://api.portal.magicdoor-test.com",
     accounting: "https://accounting.magicdoor-test.com",
+    maintenance: "https://services.magicdoor-test.com/maintenance",
   },
   demo: {
     auth: "https://auth.magicdoor-demo.com",
     portal: "https://api.portal.magicdoor-demo.com",
     accounting: "https://accounting.magicdoor-demo.com",
+    maintenance: "https://services.magicdoor-demo.com/maintenance",
   },
   development: {
     auth: "https://auth.magicdoor.dev",
     portal: "https://api.portal.magicdoor.dev",
     accounting: "https://accounting.magicdoor.dev",
+    maintenance: "https://services.magicdoor.dev/maintenance",
   },
 } as const;
 
@@ -74,6 +78,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       portal: { url: trimSlash(env.MAGICDOOR_API_URL?.trim() || hosts.portal), area: PORTAL_AREA },
       accounting: {
         url: trimSlash(env.MAGICDOOR_ACCOUNTING_URL?.trim() || hosts.accounting),
+        area: COMPANY_PORTAL_AREA,
+      },
+      maintenance: {
+        url: trimSlash(env.MAGICDOOR_MAINTENANCE_URL?.trim() || hosts.maintenance),
         area: COMPANY_PORTAL_AREA,
       },
     },

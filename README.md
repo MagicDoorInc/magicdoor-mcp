@@ -96,6 +96,21 @@ property?"*
 | `get_owner_statement` | What does this owner get? |
 | `get_on_time_rent_summary` / `get_online_payments_summary` / `get_daily_money_movement` / `get_returns_and_disputes` | Headline figures without totalling ledgers. |
 
+**Maintenance** *(served by MagicDoor's maintenance service)*
+
+| Tool | Answers questions like |
+|---|---|
+| `list_maintenance_requests` / `get_maintenance_request` | What's broken? What came in this week? |
+| `get_maintenance_request_history` | What happened with this, and how long did it sit? |
+| `get_maintenance_request_stats` | How much is outstanding? |
+| `list_work_orders` / `get_work_order` | What work is open? What is this vendor doing? |
+| `get_work_order_history` | Why is this taking so long? |
+| `list_work_order_schedule` | What's happening on Tuesday? |
+| `list_recurring_work_orders` / `get_recurring_work_order` / `..._stats` | What repeats, how often, and what does it cost? |
+| `list_vendors` / `get_vendor` / `get_vendor_overview` | Who do we use for plumbing? How much do we spend with them? |
+| `list_vendor_categories` / `list_maintenance_request_categories` | How is work classified? |
+| `list_run_books` / `get_run_book` | What's our process for this kind of problem? |
+
 **Every tool is read-only.** There is no way to create, change or delete anything in MagicDoor
 through this server, by design.
 
@@ -108,6 +123,7 @@ through this server, by design.
 | `MAGICDOOR_AUTH_URL` | no | from `MAGICDOOR_ENV` | Override the auth host, for local development. |
 | `MAGICDOOR_API_URL` | no | from `MAGICDOOR_ENV` | Override the portal API host, for local development. |
 | `MAGICDOOR_ACCOUNTING_URL` | no | from `MAGICDOOR_ENV` | Override the accounting host, for local development. |
+| `MAGICDOOR_MAINTENANCE_URL` | no | from `MAGICDOOR_ENV` | Override the maintenance host, for local development. |
 
 ## How access works
 
