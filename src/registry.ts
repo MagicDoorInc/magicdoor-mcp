@@ -30,6 +30,12 @@ export interface ToolDefinition {
   paginated?: boolean | ((args: Record<string, unknown>) => boolean);
   /** Arguments the path function used to choose an endpoint, which must not become query parameters. */
   consumes?: string[];
+  /**
+   * Trims a response before the model sees it. Some MagicDoor endpoints return their whole
+   * collection with no way to page it — `/chats` answers with every chat the company has ever
+   * had — which would swamp the context in a single call.
+   */
+  shape?: (payload: unknown, args: Record<string, unknown>) => unknown;
 }
 
 /** Every paginated endpoint takes these, and they are described identically everywhere. */
@@ -57,7 +63,9 @@ export function registerTool(server: McpServer, client: MagicDoorClient, tool: T
         }
 
         const result = await client.get(tool.service ?? "portal", path, query);
-        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+        const shaped = tool.shape ? tool.shape(result, args) : result;
+
+        return { content: [{ type: "text" as const, text: render(shaped) }] };
       } catch (error) {
         // Returned as tool output rather than thrown, so the model can explain the problem or
         // adjust its call instead of the whole conversation failing.
@@ -92,4 +100,23 @@ function applyPathParameters(
   });
 
   return { path, query };
+}
+
+/**
+ * A last line of defence for endpoints whose size we have not measured: better a clearly
+ * truncated answer than one that fills the context and crowds out the conversation.
+ */
+const MAX_RESPONSE_CHARACTERS = 200_000;
+
+function render(payload: unknown): string {
+  const text = JSON.stringify(payload, null, 2);
+  if (text.length <= MAX_RESPONSE_CHARACTERS) {
+    return text;
+  }
+
+  return (
+    text.slice(0, MAX_RESPONSE_CHARACTERS) +
+    `\n\n... truncated at ${MAX_RESPONSE_CHARACTERS} characters of ${text.length}. ` +
+    `Narrow the request with filters or a smaller pageSize to see the rest.`
+  );
 }

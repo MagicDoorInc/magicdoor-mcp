@@ -8,6 +8,8 @@ export function startStub() {
   const requests = [];
   const tokenCalls = [];
   const state = { failNext401: false, rejectKey: false, expiresIn: 900 };
+  /** Per-path canned responses, for exercising how oversized payloads get trimmed. */
+  const responses = new Map();
   let issued = 0;
 
   const server = createServer((req, res) => {
@@ -50,12 +52,18 @@ export function startStub() {
       return;
     }
 
-    json(res, { items: [{ id: "1", name: "Test Property" }], totalCount: 1, totalPages: 1, page: 1, pageSize: 25 });
+    json(res, responses.get(url.pathname) ?? {
+      items: [{ id: "1", name: "Test Property" }], totalCount: 1, totalPages: 1, page: 1, pageSize: 25,
+    });
   });
 
   return new Promise((resolve) => {
     server.listen(0, "127.0.0.1", () => {
-      resolve({ server, requests, tokenCalls, state, url: `http://127.0.0.1:${server.address().port}` });
+      resolve({
+        server, requests, tokenCalls, state,
+        setResponse: (path, body) => responses.set(path, body),
+        url: `http://127.0.0.1:${server.address().port}`,
+      });
     });
   });
 }

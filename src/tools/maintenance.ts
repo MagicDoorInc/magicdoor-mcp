@@ -21,6 +21,30 @@ const workOrderStatus = z
   .optional()
   .describe("Only work orders in these states.");
 
+/**
+ * The scheduling view returns every booked work order at once. Cap it so a busy company's
+ * schedule cannot swamp the context, and say what was left out.
+ */
+function capList(payload: unknown, limit: number): unknown {
+  // The endpoint answers with { items: [...] }; tolerate a bare array in case that changes.
+  const items = Array.isArray(payload)
+    ? payload
+    : Array.isArray((payload as { items?: unknown[] })?.items)
+      ? (payload as { items: unknown[] }).items
+      : null;
+
+  if (!items || items.length <= limit) {
+    return payload;
+  }
+
+  return {
+    items: items.slice(0, limit),
+    totalCount: items.length,
+    omitted: items.length - limit,
+    note: `Showing ${limit} of ${items.length}. Narrow with a date window, property or status.`,
+  };
+}
+
 const HISTORY_PATHS = { request: "maintenance-requests", workOrder: "work-orders" } as const;
 const CATEGORY_PATHS = { request: "maintenance-requests/categories", vendor: "vendors/categories" } as const;
 const VENDOR_DETAIL_PATHS = { overview: "overview", customFields: "custom-fields" } as const;
@@ -95,7 +119,13 @@ export const maintenanceTools: ToolDefinition[] = [
       "Use for 'what is happening on Tuesday' questions.",
     service: "maintenance",
     path: "work-orders/schedule",
-    schema: { ...place, ...window, status: workOrderStatus },
+    shape: (payload, args) => capList(payload, typeof args.limit === "number" ? args.limit : 50),
+    schema: {
+      ...place,
+      ...window,
+      status: workOrderStatus,
+      limit: z.number().int().min(1).max(200).optional().describe("How many to return. Defaults to 50."),
+    },
   },
   {
     name: "get_maintenance_history",

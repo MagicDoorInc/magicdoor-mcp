@@ -7,16 +7,78 @@ import type { ToolDefinition } from "../registry.js";
 
 const chatId = z.string().describe("The chat id, as returned by list_chats.");
 
+/**
+ * `/chats` answers with every chat the company has ever had — 860 of them, three megabytes, on a
+ * real account — because the endpoint takes no pagination. So the listing is trimmed here: the
+ * fields that let a model pick the right conversation, and a count of what was left out.
+ */
+function summariseChats(payload: unknown, args: Record<string, unknown>): unknown {
+  const chats = (payload as { chats?: unknown[] })?.chats;
+  if (!Array.isArray(chats)) {
+    return payload;
+  }
+
+  const limit = typeof args.limit === "number" ? args.limit : DEFAULT_CHAT_LIMIT;
+  const shown = chats.slice(0, limit).map((chat) => {
+    const c = chat as Record<string, unknown>;
+    const participants = Array.isArray(c.participants) ? c.participants : [];
+
+    return {
+      id: c.id,
+      subject: c.subject,
+      type: c.type,
+      closed: c.closed,
+      pinned: c.pinned,
+      created: c.created,
+      lastMessageSentAt: c.lastMessageSentAt,
+      messageCount: c.messageCount,
+      unreadMessages: c.unreadMessages,
+      propertyId: c.propertyId,
+      unitId: c.unitId,
+      participantCount: participants.length,
+      latestMessagePreview: previewOf(c.latestMessage),
+    };
+  });
+
+  return {
+    chats: shown,
+    totalCount: chats.length,
+    omitted: Math.max(0, chats.length - shown.length),
+    note:
+      chats.length > shown.length
+        ? `Showing ${shown.length} of ${chats.length} chats. Raise limit, or filter by closed or ` +
+          `assignedPropertyManagerId, to see others. Use get_chat and get_chat_messages for one in full.`
+        : undefined,
+  };
+}
+
+function previewOf(message: unknown): string | undefined {
+  const body = (message as { message?: unknown })?.message;
+  return typeof body === "string" ? body.slice(0, 140) : undefined;
+}
+
+const DEFAULT_CHAT_LIMIT = 25;
+
 export const chatTools: ToolDefinition[] = [
   {
     name: "list_chats",
     title: "List chats",
     description:
-      "The conversations with tenants, owners and vendors, each with its subject, participants and " +
-      "latest message. Use for 'what are people asking about' and to find a chat to read.",
+      "The conversations with tenants, owners and vendors — subject, type, message count and when " +
+      "each was last active. A summary, so use get_chat and get_chat_messages once you have picked " +
+      "one. Companies accumulate hundreds of chats, so this returns the most recent unless you " +
+      "raise limit or filter.",
     service: "portal",
     path: "chats",
+    shape: summariseChats,
     schema: {
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(200)
+        .optional()
+        .describe("How many conversations to return. Defaults to 25."),
       closed: z.boolean().optional().describe("Only closed conversations when true, only open when false."),
       humanEngagementRequested: z
         .boolean()

@@ -173,3 +173,50 @@ describe("failures the user has to act on", () => {
     assert.match(server.stderr(), /not a MagicDoor environment/);
   });
 });
+
+describe("keeping responses usable", () => {
+  test("summarises the chat listing instead of returning every chat whole", async () => {
+    stub.setResponse("/company-app/chats", {
+      chats: Array.from({ length: 400 }, (_, i) => ({
+        id: String(i), subject: `Chat ${i}`, type: "Lease", closed: false,
+        participants: Array.from({ length: 4 }, (_, p) => ({ id: p, name: "x".repeat(200) })),
+        latestMessage: { message: "y".repeat(2000) },
+      })),
+    });
+
+    const result = await callTool("list_chats", {});
+    const payload = JSON.parse(result.content[0].text);
+
+    assert.equal(payload.chats.length, 25, "caps the listing");
+    assert.equal(payload.totalCount, 400, "still reports how many exist");
+    assert.equal(payload.omitted, 375);
+    assert.match(payload.note, /Showing 25 of 400/);
+    assert.ok(result.content[0].text.length < 20_000, "must not be enormous");
+    assert.equal(payload.chats[0].participantCount, 4, "participants become a count");
+    assert.ok(payload.chats[0].latestMessagePreview.length <= 140, "the latest message is a preview");
+  });
+
+  test("honours a raised chat limit", async () => {
+    const result = await callTool("list_chats", { limit: 60 });
+    assert.equal(JSON.parse(result.content[0].text).chats.length, 60);
+  });
+
+  test("caps the work order schedule", async () => {
+    maintenanceStub.setResponse("/company-portal/work-orders/schedule", {
+      items: Array.from({ length: 300 }, (_, i) => ({ id: String(i) })),
+    });
+
+    const payload = JSON.parse((await callTool("get_work_order_schedule", {})).content[0].text);
+    assert.equal(payload.items.length, 50);
+    assert.equal(payload.totalCount, 300);
+    assert.match(payload.note, /Showing 50 of 300/);
+  });
+
+  test("truncates any response that would still swamp the context", async () => {
+    stub.setResponse("/company-app/properties", { items: [{ blob: "z".repeat(400_000) }] });
+
+    const text = (await callTool("list_properties", {})).content[0].text;
+    assert.ok(text.length < 210_000, "guard should cut it down");
+    assert.match(text, /truncated at 200000 characters/);
+  });
+});
