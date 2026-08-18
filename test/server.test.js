@@ -31,10 +31,15 @@ const callTool = async (name, args = {}) => {
 describe("tool surface", () => {
   test("advertises every read tool", async () => {
     const { tools } = (await mcp.call("tools/list")).result;
-    assert.deepEqual(
-      tools.map((tool) => tool.name).sort(),
-      ["list_lease_renewals", "list_leases", "list_owners", "list_properties", "list_tenants", "list_units"],
-    );
+    assert.deepEqual(tools.map((tool) => tool.name).sort(), [
+      "get_lease", "get_lease_charge", "get_lease_credit", "get_lease_custom_fields",
+      "get_lease_deposit", "get_lease_deposit_ledger", "get_lease_late_fee", "get_lease_ledger",
+      "get_lease_payment", "get_lease_transfer", "list_expiring_leases", "list_lease_auto_pays",
+      "list_lease_documents", "list_lease_files", "list_lease_move_outs",
+      "list_lease_recurring_charges", "list_lease_recurring_credits", "list_lease_recurring_payments",
+      "list_lease_renewal_offers", "list_lease_renewals", "list_lease_subsidies", "list_leases",
+      "list_move_outs", "list_owners", "list_properties", "list_tenants", "list_units",
+    ]);
   });
 
   test("publishes the filters each tool accepts", async () => {
@@ -49,7 +54,7 @@ describe("tool surface", () => {
   test("every tool is described for the model", async () => {
     const { tools } = (await mcp.call("tools/list")).result;
     for (const tool of tools) {
-      assert.ok(tool.description.length > 40, `${tool.name} needs a real description`);
+      assert.ok(tool.description.length > 60, `${tool.name} needs a description a model can act on`);
     }
   });
 });
@@ -143,5 +148,53 @@ describe("failures the user has to act on", () => {
     const server = startServer({ MAGICDOOR_API_KEY: API_KEY, MAGICDOOR_ENV: "prod", MAGICDOOR_AUTH_URL: "", MAGICDOOR_API_URL: "" });
     await server.exited();
     assert.match(server.stderr(), /not a MagicDoor environment/);
+  });
+});
+
+describe("lease coverage", () => {
+  test("substitutes path parameters instead of sending them as query", async () => {
+    await callTool("get_lease_ledger", { leaseId: "7412", limit: 5 });
+    const request = stub.requests.at(-1);
+    assert.equal(request.path, "/company-app/leases/7412/charges/ledger");
+    assert.deepEqual(Object.keys(request.query), ["limit"]);
+  });
+
+  test("builds nested transaction paths correctly", async () => {
+    await callTool("get_lease_payment", { leaseId: "7412", paymentId: "99" });
+    assert.equal(stub.requests.at(-1).path, "/company-app/leases/7412/charges/payments/99");
+  });
+
+  test("does not page endpoints that return a single record", async () => {
+    await callTool("get_lease", { leaseId: "7412" });
+    assert.deepEqual(Object.keys(stub.requests.at(-1).query), []);
+  });
+
+  test("still pages the list endpoints", async () => {
+    await callTool("list_lease_renewal_offers", { leaseId: "7412" });
+    assert.equal(stub.requests.at(-1).query.pageSize, "25");
+  });
+
+  test("reports a missing lease id rather than calling a broken path", async () => {
+    const result = await callTool("get_lease_ledger", { leaseId: "" });
+    assert.equal(result.isError, true);
+    assert.match(result.content[0].text, /leaseId is required/);
+  });
+
+  test("covers the lease surface a property manager asks about", async () => {
+    const { tools } = (await mcp.call("tools/list")).result;
+    const names = new Set(tools.map((tool) => tool.name));
+    for (const expected of [
+      "get_lease", "get_lease_ledger", "get_lease_deposit_ledger", "list_lease_recurring_charges",
+      "list_lease_auto_pays", "list_lease_renewal_offers", "list_lease_subsidies", "list_lease_documents",
+    ]) {
+      assert.ok(names.has(expected), `missing ${expected}`);
+    }
+  });
+
+  test("exposes no way to write", async () => {
+    const { tools } = (await mcp.call("tools/list")).result;
+    for (const tool of tools) {
+      assert.match(tool.name, /^(list|get)_/, `${tool.name} does not read`);
+    }
   });
 });

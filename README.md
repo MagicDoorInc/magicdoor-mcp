@@ -34,16 +34,47 @@ property?"*
 
 ## Tools
 
+**Portfolio**
+
 | Tool | Answers questions like |
 |---|---|
 | `list_properties` | What's in the portfolio? Which properties does this owner have? |
 | `list_units` | How many units does this property have? Which are active? |
-| `list_leases` | Who's renting what? Which leases carry a balance? |
 | `list_tenants` | Who lives where, and how do I reach them? |
 | `list_owners` | Who owns which properties? |
-| `list_lease_renewals` | Which leases renewed, and how did rent change? |
 
-All six are read-only. The server cannot change anything in MagicDoor.
+**Leases**
+
+| Tool | Answers questions like |
+|---|---|
+| `list_leases` | Who's renting what? Which leases carry a balance? |
+| `get_lease` | Everything about one lease. |
+| `list_expiring_leases` | What's ending soon? |
+| `list_move_outs` | Who's leaving, and when? |
+
+**Money on a lease**
+
+| Tool | Answers questions like |
+|---|---|
+| `get_lease_ledger` | What do they owe? What have they paid? |
+| `get_lease_deposit_ledger` | What deposit is held, and what's been released? |
+| `get_lease_charge` / `get_lease_payment` / `get_lease_credit` / `get_lease_late_fee` / `get_lease_transfer` / `get_lease_deposit` | Drill into one entry from a ledger. |
+| `list_lease_recurring_charges` / `..._credits` / `..._payments` | What is billed each period, as opposed to what has posted? |
+| `list_lease_auto_pays` | Is this tenant on autopay? |
+
+**Lifecycle and paperwork**
+
+| Tool | Answers questions like |
+|---|---|
+| `list_lease_renewals` | Which leases renewed, and how did rent move? |
+| `list_lease_renewal_offers` | What was offered on this lease? |
+| `list_lease_move_outs` | Where has this move-out got to? |
+| `list_lease_subsidies` | Who pays what share of the rent? |
+| `list_lease_documents` | Has the lease been signed? |
+| `list_lease_files` / `get_lease_custom_fields` | What else is recorded against this lease? |
+
+**Every tool is read-only.** There is no way to create, change or delete anything in MagicDoor
+through this server, by design.
 
 ## Configuration
 
